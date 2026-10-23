@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+exec /usr/bin/obs \
+  --enable-gpu \
+  --autoplay-policy=no-user-gesture-required \
+  "$@"

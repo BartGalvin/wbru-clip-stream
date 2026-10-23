@@ -1,0 +1,47 @@
+/* Pages keep their own palette overrides, control sizes, and layout. */
+:root {
+  color-scheme: dark;
+  --bg: #171819;
+  --panel: #202223;
+  --panel-hover: #282a2c;
+  --line: #35383a;
+  --fg: #eceeee;
+  --muted: #a5aaad;
+  --accent: #8ab7f5;
+  --font-sans: system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
+  color: var(--fg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+:where(button, input:not([type='checkbox']), select) {
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:where(button, input, select, a[href]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

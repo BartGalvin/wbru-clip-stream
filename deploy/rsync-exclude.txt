@@ -1,0 +1,19 @@
+# Excludes for deploy/deploy-code.sh's rsync to /srv/wbru/app.
+.git
+.husky
+.env*
+.dev
+.DS_Store
+node_modules
+dist
+server/*.db
+server/*.db-journal
+server/*.db-wal
+server/*.db-shm
+server/*.tmp
+server/clips-cache.json
+server/clips.json
+backups
+public/live
+# Clips live in /srv/wbru/clips and sync separately via deploy/sync-clips.sh.
+public/clips

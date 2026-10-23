@@ -1,0 +1,21 @@
+[Unit]
+Description=Download new WBRU YouTube videos and refresh the clip catalog
+Wants=network-online.target
+After=network-online.target wbru-visualizer.service
+RequiresMountsFor="{{WBRU_CLIPS_DIR}}"
+
+[Service]
+Type=oneshot
+WorkingDirectory="{{WBRU_APP_DIR}}"
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/wbru-visualizer.env
+Environment="CLIPS_DIR={{WBRU_CLIPS_DIR}}"
+Environment=YOUTUBE_COOKIES_FILE=/etc/wbru-youtube-cookies.txt
+ExecStart=/usr/bin/env node scripts/sync-youtube.mjs
+User=www-data
+Group=www-data
+# yt-dlp's cache, archive, and mutable cookie jar are private service state.
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

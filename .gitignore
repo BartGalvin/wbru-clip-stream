@@ -1,0 +1,35 @@
+node_modules
+dist
+*.local
+.DS_Store
+*.bak
+.env
+.env.*
+!.env.example
+!.env.development.example
+.dev/
+
+# Test clips stored locally
+public/*.mp4
+public/*.mov
+public/*.webm
+
+# Generated live HLS (npm run live)
+public/live/
+
+# Video clips
+public/clips/
+
+# Authoritative runtime database (back it up; do not commit it)
+server/*.db
+*.db-journal
+*.db-wal
+*.db-shm
+server/*.tmp
+
+# Generated local scan cache (npm run index-clips)
+server/clips-cache.json
+server/clips.json
+
+# Local database snapshots (npm run backup)
+backups/

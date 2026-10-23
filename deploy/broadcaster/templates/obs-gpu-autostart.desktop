@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=OBS Studio (GPU)
+Exec=/usr/local/bin/obs-gpu
+Terminal=false
+X-GNOME-Autostart-enabled=true

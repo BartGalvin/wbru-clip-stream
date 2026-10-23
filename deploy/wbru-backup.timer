@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic snapshot of WBRU program data
+
+[Timer]
+# Run after boot, every 15 minutes, and once after missed intervals.
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

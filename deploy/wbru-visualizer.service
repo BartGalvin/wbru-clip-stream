@@ -1,0 +1,22 @@
+[Unit]
+Description=WBRU visualizer program server (Express + SQLite)
+After=network.target
+RequiresMountsFor="{{WBRU_CLIPS_DIR}}"
+
+[Service]
+Type=simple
+WorkingDirectory="{{WBRU_APP_DIR}}"
+Environment=NODE_ENV=production
+Environment=PATH=/usr/bin:/usr/local/bin:/bin
+EnvironmentFile=/etc/wbru-visualizer.env
+# Keep generated clip URLs aligned with nginx's media route.
+Environment="CLIPS_DIR={{WBRU_CLIPS_DIR}}"
+Environment=CLIPS_URL_PREFIX=/clips/
+# Run the TypeScript server directly.
+ExecStart="{{WBRU_APP_DIR}}/node_modules/.bin/tsx" server/src/index.ts
+Restart=always
+RestartSec=2
+User=www-data
+
+[Install]
+WantedBy=multi-user.target

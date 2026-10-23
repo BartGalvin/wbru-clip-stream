@@ -1,0 +1,204 @@
+.list {
+  display: flex;
+  flex-direction: column;
+}
+.listhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 54px;
+  padding: 10px 16px;
+}
+.clip-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.render-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+.toolbar-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.toolbar-actions button {
+  font-size: 12px;
+}
+.undo-count {
+  display: inline-block;
+  min-width: 16px;
+  margin-left: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.column-headings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 22%);
+  gap: 14px;
+  padding: 7px 16px 7px 52px;
+  color: var(--muted);
+  background: var(--panel);
+  border-block: 1px solid var(--line);
+  font-size: 11px;
+}
+.rows {
+  padding-bottom: 40px;
+}
+.load-more {
+  display: block;
+  margin: 16px auto;
+}
+.row {
+  display: grid;
+  position: relative;
+  border-bottom: 1px solid #292c2d;
+  border-left: 3px solid transparent;
+}
+/* The checkbox sits above the full-row preview button without being inside it. */
+.row > input {
+  grid-area: 1 / 1;
+  align-self: start;
+  justify-self: start;
+  margin: 15px 0 0 16px;
+  z-index: 1;
+}
+.row-preview {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(120px, 22%);
+  align-items: start;
+  gap: 14px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 11px 16px 11px 48px;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  white-space: normal;
+}
+.row-preview:hover:not(:disabled) {
+  background: transparent;
+}
+.row-preview:focus-visible {
+  outline-offset: -2px;
+}
+.row:hover {
+  background: #1c1f20;
+}
+.row.selected {
+  background: var(--selection);
+}
+.row.focused {
+  border-left-color: var(--accent);
+}
+.clip-info {
+  min-width: 0;
+}
+.row .name,
+.row-source {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.row .name {
+  font-weight: 550;
+  line-height: 1.45;
+}
+.row-preview:hover .name {
+  color: var(--accent);
+}
+.row-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 5px;
+}
+.folder-path {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.tag-label {
+  padding: 1px 6px;
+  color: #c1c9c4;
+  background: #292f2c;
+  border: 1px solid #3a443e;
+  border-radius: 3px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.untagged-label {
+  color: var(--warning);
+  font-size: 12px;
+}
+.row-source {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  padding-top: 2px;
+}
+.row-source.unset {
+  color: #888f93;
+}
+.bulkbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--selection);
+  border-top: 1px solid #36485c;
+}
+.selection-count {
+  margin-right: 6px;
+  color: #b4cdef;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.bulkbar select,
+.bulkbar input,
+.bulkbar button {
+  font-size: 12px;
+}
+.bulkbar select {
+  min-width: 0;
+  max-width: 100%;
+}
+.bulk-value {
+  flex: 1;
+  min-width: 130px;
+  max-width: 280px;
+}
+
+@media (max-width: 600px) {
+  .row-preview {
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 40px 12px;
+  }
+  .row > input {
+    margin-left: 12px;
+  }
+  .row-source,
+  .column-headings > span:last-child {
+    display: none;
+  }
+  .column-headings {
+    grid-template-columns: 1fr;
+    padding-left: 43px;
+  }
+  .toolbar,
+  .filterbar,
+  .bulkbar {
+    padding-inline: 12px;
+  }
+}

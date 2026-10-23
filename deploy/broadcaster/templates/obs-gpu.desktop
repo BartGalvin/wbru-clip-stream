@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OBS Studio (GPU)
+Comment=OBS Studio with Browser Source GPU acceleration and autoplay
+Exec=/usr/local/bin/obs-gpu
+Icon=com.obsproject.Studio
+Terminal=false
+Categories=AudioVideo;Recorder;

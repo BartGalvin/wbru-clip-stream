@@ -1,0 +1,11 @@
+[Unit]
+Description=Check the WBRU YouTube channel for new videos
+
+[Timer]
+OnActiveSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

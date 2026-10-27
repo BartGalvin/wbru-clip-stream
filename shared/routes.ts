@@ -12,4 +12,5 @@ export const routes = {
   tagsClipSource: `${TAGS_ROUTE}/clip-source`,
   tagsRefresh: `${TAGS_ROUTE}/refresh`,
   tagsPlayout: `${TAGS_ROUTE}/playout`,
+  tagsThumbnails: `${TAGS_ROUTE}/thumbnails`,
 } as const;

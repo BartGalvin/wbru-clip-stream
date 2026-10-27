@@ -120,6 +120,8 @@ export interface RecentPlayout extends CurrentPlayout {
   source: string | null;
   // Current media location, or null when the clip is no longer available.
   previewUrl: string | null;
+  // Current inactive tag, independent of the recorded play.
+  inactive: boolean;
 }
 
 // Lightweight polling response used to detect catalog changes.

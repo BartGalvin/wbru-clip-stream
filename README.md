@@ -13,7 +13,8 @@ and reviewing the playout history. Use the stream directly or as an OBS Browser 
 - **Stream (`/stream` or `/`)**: watch the clip rotation. The default includes all
   eligible visualizer clips. Named channels are `indie`, `360`, and `wbru-tv`.
 - **Playout log (`/playout`)**: search clip titles and filenames, jump to a date and
-  time, and preview clips. Entries show the server's scheduled play times.
+  time, and preview clips. Use **Inactive** in the preview to exclude a clip from
+  rotation. Entries show the server's scheduled play times.
 
 Untagged visualizer clips and clips tagged `inactive` do not play. Folder names organize
 the library but do not assign tags. A clip's **Source** label identifies its original film,
@@ -52,6 +53,14 @@ Then open `/stream` to watch.
 Use **Refresh** in the tagger after adding, moving, or deleting video files. Local tags
 and source labels are stored in `server/program.db`; the video files stay in
 `public/clips/`.
+
+Run `npm run thumbnails` after indexing to generate images for the playout log. It uses
+the same `CLIPS_DIR` and `TAGGER_DATA_DIR` settings as the indexer, processes one clip at
+a time, and skips images already cached. Images are stored in `thumbnails/` inside the
+data directory. Run the command again after adding clips.
+
+After rescanning, run `npm run thumbnails -- --prune` to remove images unused by the
+catalog or retained playout history. This command only cleans up existing images.
 
 ## Media endpoints
 

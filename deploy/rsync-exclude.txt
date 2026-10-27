@@ -13,6 +13,7 @@ server/*.db-shm
 server/*.tmp
 server/clips-cache.json
 server/clips.json
+server/thumbnails
 backups
 public/live
 # Clips live in /srv/wbru/clips and sync separately via deploy/sync-clips.sh.

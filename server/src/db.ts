@@ -18,6 +18,7 @@ export {
   addVocabTag,
   removeVocabTag,
   setClipTagsBatch,
+  setClipTag,
   setClipSources,
 } from './db/metadata';
 export { syncClips, refreshClips } from './db/manifest';

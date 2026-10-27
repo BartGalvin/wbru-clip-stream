@@ -1,6 +1,7 @@
 import {
   fetchPlayoutChannels,
   fetchPlayoutPage,
+  setClipInactive,
   PLAYOUT_LOOKBACK_MS,
   PLAYOUT_PAGE_SIZE,
   type PlayoutChannel,
@@ -130,7 +131,7 @@ export function createPlayoutState(view: {
         signal: controller.signal,
         nowMs: now,
       });
-      // Reading history or opening a preview also pauses a poll already in flight.
+      // Reading history or selecting a clip also pauses a poll already in flight.
       if (
         controller.signal.aborted ||
         state.search.trim() ||
@@ -217,6 +218,17 @@ export function createPlayoutState(view: {
     }
   }
 
+  // Keep every loaded appearance of this clip in agreement after a tag edit.
+  async function setInactive(clipId: string, enabled: boolean): Promise<boolean> {
+    const inactive = await setClipInactive(clipId, enabled);
+    for (const page of Object.values(state.channelPages)) {
+      for (const event of page.items) {
+        if (event.clipId === clipId) event.inactive = inactive;
+      }
+    }
+    return inactive;
+  }
+
   function start(): () => void {
     void refresh();
     const livePollTimer = setInterval(() => void loadNewEvents(), LIVE_POLL_INTERVAL_MS);
@@ -235,6 +247,7 @@ export function createPlayoutState(view: {
     refresh,
     updateSearch,
     loadMore,
+    setInactive,
     start,
   };
 }

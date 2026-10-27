@@ -31,5 +31,8 @@ server/*.tmp
 server/clips-cache.json
 server/clips.json
 
+# Generated clip thumbnails (npm run thumbnails)
+server/thumbnails/
+
 # Local database snapshots (npm run backup)
 backups/

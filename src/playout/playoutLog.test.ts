@@ -4,6 +4,7 @@ import { routes } from '../../shared/routes';
 import {
   fetchPlayoutChannels,
   fetchPlayoutPage,
+  setClipInactive,
   PLAYOUT_LOOKBACK_MS,
   PLAYOUT_PAGE_SIZE,
 } from './playoutLog';
@@ -22,6 +23,7 @@ function event(overrides: Partial<RecentPlayout> = {}): RecentPlayout {
     library: 'visualizer',
     source: null,
     previewUrl: '/clips/first.mp4',
+    inactive: false,
     durationSec: 60,
     startedAt: '2026-08-29T15:00:00.000Z',
     ...overrides,
@@ -29,6 +31,25 @@ function event(overrides: Partial<RecentPlayout> = {}): RecentPlayout {
 }
 
 describe('playout history', () => {
+  it.each([true, false])('sets inactive to %s through a single-tag update', async (inactive) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ id: 'clip-1', tags: inactive ? ['indie', 'inactive'] : ['indie'] }),
+      );
+    await expect(setClipInactive('clip-1', inactive, fetcher)).resolves.toBe(inactive);
+    expect(fetcher).toHaveBeenCalledWith(`${routes.tagsClips}/clip-1/tags`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tag: 'inactive', enabled: inactive }),
+    });
+  });
+
+  it('surfaces a rejected inactive update', async () => {
+    const fetcher = vi.fn().mockResolvedValue(new Response(null, { status: 503 }));
+    await expect(setClipInactive('clip-1', true, fetcher)).rejects.toThrow('503');
+  });
+
   it('lists server-timed channels from channel configuration', async () => {
     const channels = [
       { id: 'indie', name: 'Indie', timeline: 'server' },

@@ -104,6 +104,22 @@ export function setClipTagsBatch(updates: ClipTagUpdate[]): ClipTagUpdate[] {
   return normalized;
 }
 
+// Apply one tag change while preserving the clip's remaining metadata.
+export function setClipTag(id: string, tag: string, enabled: boolean): ClipTagUpdate {
+  const db = getDatabase();
+  const cleanTag = tag.trim();
+  assertValidTagName(cleanTag);
+  return db.transaction(() => {
+    const row = db.prepare('SELECT tags FROM clip_metadata WHERE clip_id = ?').get(id) as
+      | { tags: string }
+      | undefined;
+    const tags = parseTags(row?.tags ?? '[]');
+    return setClipTagsBatch([
+      { id, tags: enabled ? [...tags, cleanTag] : tags.filter((value) => value !== cleanTag) },
+    ])[0];
+  })();
+}
+
 // Validate the whole batch before applying one source value atomically.
 export function setClipSources(ids: string[], source: string | null): ClipSourceBatch {
   const db = getDatabase();

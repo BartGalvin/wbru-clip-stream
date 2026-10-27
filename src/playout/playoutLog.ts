@@ -1,12 +1,29 @@
 import {
   PLAYOUT_RETENTION_DAYS,
   type ChannelInfo,
+  type ClipTagUpdate,
   type RecentPlayout,
 } from '../../shared/contract';
 import { routes } from '../../shared/routes';
 
 export const PLAYOUT_PAGE_SIZE = 100;
 export const PLAYOUT_LOOKBACK_MS = PLAYOUT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+
+// Change only the inactive tag and return its stored state.
+export async function setClipInactive(
+  clipId: string,
+  inactive: boolean,
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  const response = await fetcher(`${routes.tagsClips}/${encodeURIComponent(clipId)}/tags`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag: 'inactive', enabled: inactive }),
+  });
+  if (!response.ok) throw new Error(`Tag update failed (${response.status}).`);
+  const clip = (await response.json()) as ClipTagUpdate;
+  return clip.tags.includes('inactive');
+}
 
 const CHANNEL_ACCENTS = ['#49d6a2', '#f1b85b', '#a995ff', '#68b8f7'] as const;
 

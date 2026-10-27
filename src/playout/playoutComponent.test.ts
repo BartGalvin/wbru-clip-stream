@@ -9,12 +9,14 @@ import PlayoutLog from './PlayoutLog.svelte';
 const api = vi.hoisted(() => ({
   fetchPlayoutChannels: vi.fn(),
   fetchPlayoutPage: vi.fn(),
+  setClipInactive: vi.fn(),
 }));
 
 vi.mock('./playoutLog', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./playoutLog')>()),
   fetchPlayoutChannels: api.fetchPlayoutChannels,
   fetchPlayoutPage: api.fetchPlayoutPage,
+  setClipInactive: api.setClipInactive,
 }));
 
 function deferred<T>(): {
@@ -43,6 +45,7 @@ const event: RecentPlayout = {
   library: 'visualizer',
   source: null,
   previewUrl: '/clips/first.mp4',
+  inactive: false,
   durationSec: 60,
   startedAt: '2026-08-29T15:00:00.000Z',
 };
@@ -57,6 +60,7 @@ beforeEach(() => {
   ]);
   api.fetchPlayoutPage.mockResolvedValue({ items: [] });
   document.body.innerHTML = '';
+  resizeWindow(1600, 1000);
 });
 
 afterEach(async () => {
@@ -68,6 +72,14 @@ async function renderLog(): Promise<void> {
   mounted.push(mount(PlayoutLog, { target: document.body }));
   await vi.waitFor(() => expect(document.querySelector('.loading-state')).toBeNull());
   await tick();
+}
+
+function resizeWindow(width: number, height: number): void {
+  Object.defineProperties(window, {
+    innerWidth: { configurable: true, value: width },
+    innerHeight: { configurable: true, value: height },
+  });
+  window.dispatchEvent(new Event('resize'));
 }
 
 function titles(channelId = 'indie'): (string | null)[] {
@@ -102,6 +114,63 @@ function setSearch(value: string): void {
   input.value = value;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
+
+it.each([
+  [1600, 1000, 'vertical', 'ArrowLeft', '--preview-width'],
+  [390, 844, 'horizontal', 'ArrowUp', '--preview-height'],
+] as const)(
+  'resizes the preview with its %s by %s window divider',
+  async (width, height, orientation, growKey, property) => {
+    resizeWindow(width, height);
+    await renderLog();
+    const divider = document.querySelector<HTMLDivElement>('[aria-label="Resize preview"]')!;
+    expect(divider.getAttribute('aria-orientation')).toBe(orientation);
+    const initial = Number(divider.getAttribute('aria-valuenow'));
+    divider.setPointerCapture = vi.fn();
+    divider.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        clientX: 300,
+        clientY: 300,
+        button: 0,
+        bubbles: true,
+      }),
+    );
+    divider.dispatchEvent(
+      new PointerEvent('pointermove', {
+        pointerId: 1,
+        clientX: orientation === 'vertical' ? 200 : 300,
+        clientY: orientation === 'horizontal' ? 200 : 300,
+        bubbles: true,
+      }),
+    );
+    await tick();
+    expect(divider.setPointerCapture).toHaveBeenCalledWith(1);
+    expect(divider.getAttribute('aria-valuenow')).toBe(String(initial + 100));
+    expect(
+      document.querySelector<HTMLElement>('.page-shell')!.style.getPropertyValue(property),
+    ).toBe(`${initial + 100}px`);
+
+    divider.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true }));
+    divider.dispatchEvent(
+      new PointerEvent('pointermove', { pointerId: 1, clientX: 0, clientY: 0, bubbles: true }),
+    );
+    await tick();
+    expect(divider.getAttribute('aria-valuenow')).toBe(String(initial + 100));
+    divider.dispatchEvent(new KeyboardEvent('keydown', { key: growKey, bubbles: true }));
+    await tick();
+    expect(divider.getAttribute('aria-valuenow')).toBe(String(initial + 116));
+    divider.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    await tick();
+    expect(divider.getAttribute('aria-valuenow')).toBe(divider.getAttribute('aria-valuemin'));
+    divider.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await tick();
+    expect(divider.getAttribute('aria-valuenow')).toBe(divider.getAttribute('aria-valuemax'));
+    divider.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    await tick();
+    expect(divider.getAttribute('aria-valuenow')).toBe(String(initial));
+  },
+);
 
 it('debounces typing and uses the final trimmed search', async () => {
   api.fetchPlayoutPage.mockResolvedValue({ items: [event] });
@@ -334,7 +403,7 @@ it('bounds the live view, keeps older pages reachable, and pauses while reading 
   expect(titles()).toHaveLength(100);
 });
 
-it.each(['scrolled down', 'loading an older page', 'preview is open'])(
+it.each(['scrolled down', 'loading an older page', 'a clip is selected'])(
   'defers an in-flight poll while %s',
   async (mode) => {
     const loadingOlder = mode === 'loading an older page';
@@ -351,8 +420,8 @@ it.each(['scrolled down', 'loading an older page', 'preview is open'])(
     await poll();
     await poll();
     expect(api.fetchPlayoutPage).toHaveBeenCalledTimes(3);
-    const list = scrollList(loadingOlder ? 900 : mode === 'preview is open' ? 0 : 100);
-    if (mode === 'preview is open') {
+    const list = scrollList(loadingOlder ? 900 : mode === 'a clip is selected' ? 0 : 100);
+    if (mode === 'a clip is selected') {
       document.querySelector<HTMLButtonElement>('.event-preview')!.click();
       await tick();
     }
@@ -370,8 +439,8 @@ it.each(['scrolled down', 'loading an older page', 'preview is open'])(
     older.resolve({ items: [] });
     await tick();
     list.scrollTop = 0;
-    if (mode === 'preview is open') {
-      document.querySelector<HTMLButtonElement>('[aria-label="Close preview"]')!.click();
+    if (mode === 'a clip is selected') {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       await tick();
     }
     await poll();
@@ -434,11 +503,13 @@ it('removes entries that leave the retained history window', async () => {
   expect(titles()).toEqual([]);
 });
 
-it('loads only the selected preview and releases it on close', async () => {
+it('keeps the pane visible and loads video only while a clip is selected', async () => {
   api.fetchPlayoutPage.mockResolvedValue({
     items: [event, { ...event, id: 9, title: 'Second clip', previewUrl: '/clips/second.mp4' }],
   });
   await renderLog();
+  expect(document.querySelector('aside.clip-preview')).not.toBeNull();
+  expect(document.querySelector('.preview-unavailable')?.textContent).toBe('No clip selected.');
   expect(document.querySelector('video')).toBeNull();
   const calls = api.fetchPlayoutPage.mock.calls.length;
 
@@ -461,11 +532,117 @@ it('loads only the selected preview and releases it on close', async () => {
   expect(document.querySelectorAll('video')).toHaveLength(1);
   expect(document.querySelector('video')).not.toBe(video);
 
-  document.querySelector<HTMLButtonElement>('[aria-label="Close preview"]')!.click();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   await tick();
-  expect(document.querySelector('.clip-preview')).toBeNull();
+  expect(document.querySelector('.clip-preview')).not.toBeNull();
+  expect(document.querySelector('.preview-unavailable')?.textContent).toBe('No clip selected.');
   expect(document.querySelector('video')).toBeNull();
   expect(document.activeElement).toBe(document.querySelectorAll('.event-preview')[1]);
+});
+
+it('shows lazy thumbnails before opening a video and keeps missing-image rows usable', async () => {
+  api.fetchPlayoutPage.mockResolvedValue({
+    items: [event, { ...event, id: 9, path: 'moved/first.mp4', previewUrl: null }],
+  });
+  await renderLog();
+  const images = [...document.querySelectorAll<HTMLImageElement>('.event-thumbnail img')];
+  expect(images).toHaveLength(2);
+  expect(images.map((image) => image.getAttribute('src'))).toEqual([
+    '/api/tags/thumbnails/clip-1.jpg',
+    '/api/tags/thumbnails/clip-1.jpg',
+  ]);
+  expect(images.every((image) => image.getAttribute('loading') === 'lazy')).toBe(true);
+  expect(document.querySelector('video')).toBeNull();
+
+  images[0].dispatchEvent(new Event('error'));
+  expect(images[0].hidden).toBe(true);
+  expect(titles()).toEqual(['First clip', 'First clip']);
+
+  images[1].click();
+  await tick();
+  expect(document.querySelector('.clip-preview h3')?.textContent).toBe('First clip');
+  expect(document.querySelector('.preview-unavailable')).not.toBeNull();
+});
+
+it('marks all loaded appearances inactive and lets the operator reverse it', async () => {
+  const other = { ...event, id: 9, channelId: '360', outputId: '360-server' };
+  api.fetchPlayoutChannels.mockResolvedValue([
+    { id: 'indie', name: 'WBRU Indie', accent: '#49d6a2' },
+    { id: '360', name: 'WBRU 360', accent: '#f1b85b' },
+  ]);
+  api.fetchPlayoutPage.mockImplementation(({ channelId }) =>
+    Promise.resolve({ items: [channelId === '360' ? other : event] }),
+  );
+  api.setClipInactive.mockImplementation((_clipId, inactive) => Promise.resolve(inactive));
+  await renderLog();
+  document.querySelector<HTMLButtonElement>('.event-preview')!.click();
+  await tick();
+  const checkbox = document.querySelector<HTMLInputElement>('.inactive-control input')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  await vi.waitFor(() => expect(api.setClipInactive).toHaveBeenCalledWith(event.clipId, true));
+  await vi.waitFor(() => expect(document.querySelectorAll('.inactive-badge')).toHaveLength(2));
+  expect(document.querySelectorAll('.event-preview')).toHaveLength(2);
+
+  document.querySelectorAll<HTMLButtonElement>('.event-preview')[1].click();
+  await tick();
+  expect(checkbox.checked).toBe(true);
+  checkbox.checked = false;
+  checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  await vi.waitFor(() => expect(api.setClipInactive).toHaveBeenLastCalledWith(event.clipId, false));
+  await vi.waitFor(() => expect(document.querySelectorAll('.inactive-badge')).toHaveLength(0));
+});
+
+it('restores the inactive checkbox after a failed update and allows retrying', async () => {
+  api.fetchPlayoutPage.mockResolvedValue({ items: [event] });
+  api.setClipInactive.mockRejectedValueOnce(new Error('503')).mockResolvedValueOnce(true);
+  await renderLog();
+  document.querySelector<HTMLButtonElement>('.event-preview')!.click();
+  await tick();
+  const checkbox = document.querySelector<HTMLInputElement>('.inactive-control input')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  await vi.waitFor(() =>
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain('503'),
+  );
+  expect(checkbox.checked).toBe(false);
+  expect(checkbox.disabled).toBe(false);
+  expect(document.querySelector('.inactive-badge')).toBeNull();
+
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  await vi.waitFor(() => expect(document.querySelector('.inactive-badge')).not.toBeNull());
+  expect(checkbox.checked).toBe(true);
+  expect(document.querySelector('[role="alert"]')).toBeNull();
+});
+
+it('finishes an inactive update for the original clip after preview navigation', async () => {
+  const pending = deferred<boolean>();
+  api.fetchPlayoutPage.mockResolvedValue({
+    items: [event, { ...event, id: 9, clipId: 'clip-2', title: 'Second clip' }],
+  });
+  api.setClipInactive.mockReturnValue(pending.promise);
+  await renderLog();
+  const rows = document.querySelectorAll<HTMLButtonElement>('.event-preview');
+  rows[0].click();
+  await tick();
+  const checkbox = document.querySelector<HTMLInputElement>('.inactive-control input')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  await tick();
+  expect(checkbox.disabled).toBe(true);
+  rows[1].click();
+  await tick();
+  expect(checkbox.checked).toBe(false);
+
+  pending.resolve(true);
+  await vi.waitFor(() => expect(checkbox.disabled).toBe(false));
+  expect(checkbox.checked).toBe(false);
+  expect(rows[0].querySelector('.inactive-badge')).not.toBeNull();
+  expect(rows[1].querySelector('.inactive-badge')).toBeNull();
+  rows[0].click();
+  await tick();
+  expect(checkbox.checked).toBe(true);
 });
 
 it('steps through earlier and later plays, loading an older page when needed', async () => {
@@ -525,7 +702,8 @@ it('switches channels by clicking a row and keeps navigation inside that channel
   );
   window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
   await tick();
-  expect(document.querySelector('.clip-preview')).toBeNull();
+  expect(document.querySelector('.clip-preview')).not.toBeNull();
+  expect(document.querySelector('video')).toBeNull();
 });
 
 it('keeps a clicked selection when an older page finishes loading', async () => {
@@ -558,7 +736,9 @@ it('clears preview navigation when a new search replaces the log', async () => {
   search.dispatchEvent(new Event('input', { bubbles: true }));
   await vi.advanceTimersByTimeAsync(250);
   await tick();
-  expect(document.querySelector('.clip-preview')).toBeNull();
+  expect(document.querySelector('.clip-preview')).not.toBeNull();
+  expect(document.querySelector('.preview-unavailable')?.textContent).toBe('No clip selected.');
+  expect(document.querySelector('video')).toBeNull();
   expect(document.querySelector('.event-preview.selected')).toBeNull();
 });
 

@@ -18,6 +18,9 @@ interface CurrentPlayoutRow extends CurrentPlayout {
   ageSec: number;
 }
 
+// SQLite's tag-membership result becomes a boolean in API responses.
+type RecentPlayoutRow = Omit<RecentPlayout, 'inactive'> & { inactive: number };
+
 // Filters and pagination cursors for recorded playouts.
 interface RecentPlayoutQuery {
   limit?: number;
@@ -73,7 +76,7 @@ export function getRecentPlayouts({
 }: RecentPlayoutQuery = {}): RecentPlayout[] {
   const db = getDatabase();
   const searchText = search?.trim() || null;
-  return db
+  const rows = db
     .prepare(
       `SELECT p.id, strftime('%Y-%m-%dT%H:%M:%fZ', p.started_at) AS startedAt,
               p.output_id AS outputId, p.channel_id AS channelId,
@@ -83,6 +86,7 @@ export function getRecentPlayouts({
               COALESCE(p.clip_library, c.library) AS library,
               COALESCE(p.clip_duration_sec, c.duration_sec) AS durationSec,
               CASE WHEN c.available = 1 THEN c.url ELSE NULL END AS previewUrl,
+              EXISTS (SELECT 1 FROM json_each(COALESCE(m.tags, '[]')) WHERE value = 'inactive') AS inactive,
               CASE WHEN p.clip_title IS NULL THEN m.source ELSE p.clip_source END AS source
        FROM playout_events p
        JOIN clips c ON c.id = p.clip_id
@@ -118,7 +122,8 @@ export function getRecentPlayouts({
       searchText,
       searchText,
       Math.min(1000, Math.max(1, limit)),
-    ) as RecentPlayout[];
+    ) as RecentPlayoutRow[];
+  return rows.map((row) => ({ ...row, inactive: row.inactive === 1 }));
 }
 
 // Load the latest non-expired event with the media fields needed for playback.

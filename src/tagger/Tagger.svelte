@@ -4,7 +4,7 @@
   import Sidebar from './components/Sidebar.svelte';
   import ClipList from './components/ClipList.svelte';
   import PreviewPane from './components/PreviewPane.svelte';
-  import ResizeHandle from './components/ResizeHandle.svelte';
+  import ResizeHandle from '../components/ResizeHandle.svelte';
 
   let isSidebarOpen = $state(false);
   let layoutWidth = $state(0);
@@ -65,22 +65,23 @@
 >
   <Sidebar onNavigate={() => (isSidebarOpen = false)} />
   <ResizeHandle
+    class="sidebar-resize-handle"
     label="Resize folders"
     panelId="catalog-sidebar"
-    width={visibleSidebarWidth}
-    minWidth={160}
-    maxWidth={sidebarMax}
-    defaultWidth={220}
+    size={visibleSidebarWidth}
+    minSize={160}
+    maxSize={sidebarMax}
+    defaultSize={220}
     onresize={(width) => (sidebarWidth = width)}
   />
   <ClipList />
   <ResizeHandle
     label="Resize preview"
     panelId="clip-preview"
-    width={visiblePreviewWidth}
-    minWidth={240}
-    maxWidth={previewMax}
-    defaultWidth={340}
+    size={visiblePreviewWidth}
+    minSize={240}
+    maxSize={previewMax}
+    defaultSize={340}
     reverse
     onresize={(width) => (previewWidth = width)}
   />

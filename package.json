@@ -16,6 +16,7 @@
     "sync-youtube": "node --env-file-if-exists=.env scripts/sync-youtube.mjs",
     "live": "node scripts/live.mjs",
     "index-clips": "node scripts/index-clips.mjs",
+    "thumbnails": "node --env-file-if-exists=.env scripts/generate-thumbnails.mjs",
     "backup": "node scripts/backup-data.mjs",
     "deploy-code": "bash deploy/deploy-code.sh",
     "sync-clips": "bash deploy/sync-clips.sh",

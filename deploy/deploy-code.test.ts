@@ -233,17 +233,21 @@ it('preserves default in-application runtime files through deploy and rollback',
   const caches = ['clips-cache.json', 'clips.json'].map((name) => join(fixture.dataDir, name));
   const backup = join(fixture.destination, 'backups', 'existing.db');
   const clip = join(fixture.destination, 'public/clips', 'session.mp4');
+  const thumbnail = join(fixture.dataDir, 'thumbnails', 'clp_session.jpg');
   mkdirSync(join(fixture.destination, 'backups'));
   mkdirSync(join(fixture.destination, 'public/clips'), { recursive: true });
+  mkdirSync(join(fixture.dataDir, 'thumbnails'));
   for (const cache of caches) writeFileSync(cache, '[]\n');
   writeFileSync(backup, fixture.originalDatabase);
   writeFileSync(clip, 'existing video');
+  writeFileSync(thumbnail, 'existing image');
   writeFileSync(fixture.serviceEnv, `CLIPS_DIR='${join(fixture.destination, 'public/clips')}'\n`);
 
   const applied = fixture.deploy('--apply');
   expect(applied.status, applied.stderr).toBe(0);
   for (const cache of caches) expect(readFileSync(cache, 'utf8')).toBe('[]\n');
   expect(readFileSync(fixture.databasePath)).toEqual(fixture.originalDatabase);
+  expect(readFileSync(thumbnail, 'utf8')).toBe('existing image');
 
   const database = new Database(fixture.databasePath);
   database.prepare('INSERT INTO notes VALUES (?)').run('new operator data');
@@ -257,6 +261,7 @@ it('preserves default in-application runtime files through deploy and rollback',
   for (const cache of caches) expect(readFileSync(cache, 'utf8')).toBe('[]\n');
   expect(readFileSync(backup)).toEqual(fixture.originalDatabase);
   expect(readFileSync(clip, 'utf8')).toBe('existing video');
+  expect(readFileSync(thumbnail, 'utf8')).toBe('existing image');
 });
 
 it('rejects a nonempty initial destination before deleting any files', () => {

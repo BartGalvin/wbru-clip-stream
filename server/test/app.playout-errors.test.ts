@@ -119,6 +119,7 @@ describe('playout log', () => {
         library: 'wbru-youtube',
         source: null,
         previewUrl: '/clips/wbru-youtube/tv.mp4',
+        inactive: false,
         durationSec: 0,
       },
     ]);

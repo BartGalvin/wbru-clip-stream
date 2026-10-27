@@ -85,6 +85,7 @@ describe('scheduled playouts', () => {
       library: 'visualizer',
       source: null,
       previewUrl: '/clips/previous.mp4',
+      inactive: false,
       durationSec: 20,
       startedAt: '2026-08-29T16:59:55.000Z',
     });

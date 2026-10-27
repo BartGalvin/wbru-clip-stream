@@ -1,4 +1,5 @@
-import { Router, type NextFunction, type Response } from 'express';
+import { Router, static as serveStatic, type NextFunction, type Response } from 'express';
+import { join } from 'node:path';
 import type {
   AddVocabTagRequest,
   CatalogRefreshResponse,
@@ -20,6 +21,7 @@ import {
   removeVocabTag,
   setClipSources,
   setClipTagsBatch,
+  setClipTag,
   UnknownClipError,
 } from '../db';
 import {
@@ -30,6 +32,7 @@ import {
 } from '../httpValidation';
 import { markTaggerActivity, rescan } from '../rescan';
 import { catalogRevision } from '../tagRevision';
+import { getDataDir } from '../db/connection';
 
 function isAddVocabTagRequest(value: unknown): value is AddVocabTagRequest {
   return isRequestBody(value) && typeof value.tag === 'string' && value.tag.trim().length > 0;
@@ -82,6 +85,16 @@ function handleMetadataError(error: unknown, res: Response, next: NextFunction):
 // Nginx basic auth is the production security boundary for /api/tags/*.
 export function createTagsRouter(): Router {
   const router = Router();
+
+  // Serve cached clip images through the operator authentication boundary.
+  router.use(
+    routes.tagsThumbnails,
+    serveStatic(join(getDataDir(), 'thumbnails'), {
+      setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+      },
+    }),
+  );
 
   // Read and extend the ordered tag vocabulary.
   router.get(routes.tagsVocab, (_req, res) => {
@@ -182,6 +195,24 @@ export function createTagsRouter(): Router {
     try {
       setClipTagsBatch(req.body.clips);
       res.status(204).end();
+    } catch (error) {
+      handleMetadataError(error, res, next);
+    }
+  });
+
+  // Add or remove one tag using the clip's current tag set.
+  router.patch(`${routes.tagsClips}/:id/tags`, (req, res, next) => {
+    if (
+      !isRequestBody(req.body) ||
+      typeof req.body.tag !== 'string' ||
+      !req.body.tag.trim() ||
+      typeof req.body.enabled !== 'boolean'
+    ) {
+      res.status(400).json({ error: 'body must be { tag: string, enabled: boolean }' });
+      return;
+    }
+    try {
+      res.json(setClipTag(req.params.id, req.body.tag, req.body.enabled));
     } catch (error) {
       handleMetadataError(error, res, next);
     }

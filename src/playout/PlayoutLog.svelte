@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { RecentPlayout } from '../../shared/contract';
+  import { routes } from '../../shared/routes';
   import { PLAYOUT_LOOKBACK_MS } from './playoutLog';
   import { createPlayoutState } from './playoutState.svelte';
+  import ResizeHandle from '../components/ResizeHandle.svelte';
 
   const dayFormatter = new Intl.DateTimeFormat(undefined, {
     weekday: 'short',
@@ -27,6 +29,23 @@
   let logGrid = $state<HTMLDivElement>();
   let selectedEvent = $state<RecentPlayout | null>(null);
   let previewFailed = $state(false);
+  let inactive = $state(false);
+  let savingClipId = $state<string | null>(null);
+  let inactiveError = $state('');
+  let viewportWidth = $state(1280);
+  let viewportHeight = $state(800);
+  let previewWidth = $state(400);
+  let previewHeight = $state<number | null>(null);
+  const isStacked = $derived(viewportWidth <= 1050);
+  // Leave room for the log's three columns when expanding the desktop preview.
+  const maxPreviewWidth = $derived(Math.max(280, Math.min(800, viewportWidth - 760)));
+  const visiblePreviewWidth = $derived(Math.min(previewWidth, maxPreviewWidth));
+  const defaultPreviewHeight = $derived(Math.round(viewportHeight * 0.35));
+  const maxPreviewHeight = $derived(Math.floor(viewportHeight * 0.7));
+  const minPreviewHeight = $derived(Math.min(160, maxPreviewHeight));
+  const visiblePreviewHeight = $derived(
+    Math.max(minPreviewHeight, Math.min(previewHeight ?? defaultPreviewHeight, maxPreviewHeight)),
+  );
   const playout = createPlayoutState({
     isLivePaused: () =>
       selectedEvent !== null ||
@@ -35,6 +54,7 @@
       ),
     onRefresh: (loadedAt, until) => {
       selectedEvent = null;
+      inactiveError = '';
       if (!until) {
         browseDate = localDateValue(loadedAt);
         browseTime = '';
@@ -59,7 +79,7 @@
   );
   const newestDate = $derived(localDateValue(log.loadedAt ?? new Date()));
 
-  // Keep the selected row visible when the pane opens or steps through history.
+  // Keep the selected row visible while stepping through history.
   $effect(() => {
     if (selectedEvent) {
       logGrid
@@ -109,13 +129,40 @@
   function preview(event: RecentPlayout): void {
     selectedEvent = event;
     previewFailed = false;
+    inactive = event.inactive;
+    inactiveError = '';
   }
 
-  function closePreview(): void {
+  // Save the tag while allowing the preview to move to another clip.
+  async function saveInactive(enabled: boolean): Promise<void> {
+    const current = selectedEvent;
+    if (!current) return;
+    savingClipId = current.clipId;
+    inactiveError = '';
+    try {
+      const saved = await playout.setInactive(current.clipId, enabled);
+      if (selectedEvent?.clipId === current.clipId) {
+        selectedEvent.inactive = saved;
+        inactive = saved;
+      }
+    } catch (error) {
+      inactiveError = `${current.title || current.clipId}: ${error instanceof Error ? error.message : 'Tag update failed.'}`;
+      if (selectedEvent?.clipId === current.clipId) inactive = current.inactive;
+    } finally {
+      savingClipId = null;
+    }
+  }
+
+  function clearPreview(): void {
     logGrid
       ?.querySelector<HTMLButtonElement>('.event-preview.selected')
       ?.focus({ preventScroll: true });
     selectedEvent = null;
+  }
+
+  function resizePreview(size: number): void {
+    if (isStacked) previewHeight = size;
+    else previewWidth = size;
   }
 
   // Rows are newest first, so moving back in time steps down the channel's list.
@@ -145,12 +192,18 @@
 </svelte:head>
 
 <svelte:window
+  bind:innerWidth={viewportWidth}
+  bind:innerHeight={viewportHeight}
   onkeydown={(event) => {
-    if (event.key === 'Escape' && selectedEvent && !event.defaultPrevented) closePreview();
+    if (event.key === 'Escape' && selectedEvent && !event.defaultPrevented) clearPreview();
   }}
 />
 
-<div class="page-shell" class:with-preview={selectedEvent !== null}>
+<div
+  class="page-shell"
+  style:--preview-width={`${visiblePreviewWidth}px`}
+  style:--preview-height={`${visiblePreviewHeight}px`}
+>
   <header class="page-header">
     <div>
       <p class="eyebrow"><span aria-hidden="true"></span> WBRU playout</p>
@@ -233,6 +286,13 @@
     </div>
   {/if}
 
+  {#if inactiveError}
+    <div class="notice error" role="alert">
+      <strong>Could not update clip.</strong>
+      <span>{inactiveError}</span>
+    </div>
+  {/if}
+
   {#if log.isLoading}
     <div class="loading-state" aria-live="polite">Loading playout history...</div>
   {:else}
@@ -272,22 +332,38 @@
                     data-event-id={event.id}
                     class:selected={selectedEvent?.id === event.id}
                     aria-label={`Preview ${event.title || 'Untitled clip'}`}
-                    aria-controls={selectedEvent ? 'clip-preview' : undefined}
-                    aria-expanded={selectedEvent?.id === event.id}
+                    aria-controls="clip-preview"
+                    aria-pressed={selectedEvent?.id === event.id}
                     onclick={() => preview(event)}
                   >
                     <time datetime={event.startedAt}
                       >{timeFormatter.format(new Date(event.startedAt))}</time
                     >
-                    <span class="event-details">
-                      <strong>{event.title || 'Untitled clip'}</strong>
-                      <span class="path" title={event.path}>{event.path}</span>
-                      {#if event.source}
-                        <span class="source" title={event.source}>Source: {event.source}</span>
-                      {/if}
-                      <span class="event-meta">
-                        <span>{formatDuration(event.durationSec)}</span>
-                        <span class="output">{event.outputId}</span>
+                    <span class="event-content">
+                      <span class="event-thumbnail" aria-hidden="true">
+                        <span>No image</span>
+                        <img
+                          src={`${routes.tagsThumbnails}/${encodeURIComponent(event.clipId)}.jpg`}
+                          alt=""
+                          width="320"
+                          height="180"
+                          loading="lazy"
+                          decoding="async"
+                          onerror={(event) =>
+                            ((event.currentTarget as HTMLImageElement).hidden = true)}
+                        />
+                      </span>
+                      <span class="event-details">
+                        <strong>{event.title || 'Untitled clip'}</strong>
+                        <span class="path" title={event.path}>{event.path}</span>
+                        {#if event.source}
+                          <span class="source" title={event.source}>Source: {event.source}</span>
+                        {/if}
+                        <span class="event-meta">
+                          <span>{formatDuration(event.durationSec)}</span>
+                          <span class="output">{event.outputId}</span>
+                          {#if event.inactive}<span class="inactive-badge">Inactive</span>{/if}
+                        </span>
                       </span>
                     </span>
                   </button>
@@ -305,9 +381,19 @@
       {/each}
     </div>
   {/if}
-</div>
+  <ResizeHandle
+    class="preview-resize-handle"
+    label="Resize preview"
+    panelId="clip-preview"
+    orientation={isStacked ? 'horizontal' : 'vertical'}
+    size={isStacked ? visiblePreviewHeight : visiblePreviewWidth}
+    minSize={isStacked ? minPreviewHeight : 280}
+    maxSize={isStacked ? maxPreviewHeight : maxPreviewWidth}
+    defaultSize={isStacked ? defaultPreviewHeight : 400}
+    reverse
+    onresize={resizePreview}
+  />
 
-{#if selectedEvent}
   <aside class="clip-preview" id="clip-preview" aria-labelledby="preview-heading">
     <header class="preview-header">
       <h2 id="preview-heading">Clip preview</h2>
@@ -328,45 +414,52 @@
           disabled={log.isRefreshing || selectedPage?.loading || selectedIndex <= 0}
           onclick={() => movePreview('later')}>&rarr;</button
         >
-        <button
-          type="button"
-          class="icon-button"
-          title="Close preview"
-          aria-label="Close preview"
-          onclick={closePreview}>&times;</button
-        >
       </div>
     </header>
-    {#key selectedEvent.id}
-      {#if selectedEvent.previewUrl && !previewFailed}
-        <video
-          src={selectedEvent.previewUrl}
-          controls
-          muted
-          playsinline
-          preload="metadata"
-          onerror={() => (previewFailed = true)}
-        ></video>
-      {:else}
-        <p class="preview-unavailable">
-          {previewFailed ? 'Could not load this clip.' : 'Clip no longer available.'}
-        </p>
-      {/if}
-    {/key}
-    <h3 aria-live="polite">{selectedEvent.title || 'Untitled clip'}</h3>
-    <p class="preview-path">{selectedEvent.path}</p>
-    <dl>
-      <dt>Logged</dt>
-      <dd>{rangeFormatter.format(new Date(selectedEvent.startedAt))}</dd>
-      <dt>Channel</dt>
-      <dd>
-        {log.channels.find((channel) => channel.id === selectedEvent?.channelId)?.name ??
-          selectedEvent.channelId}
-      </dd>
-      <dt>Duration</dt>
-      <dd>{formatDuration(selectedEvent.durationSec)}</dd>
-      {#if selectedEvent.source}<dt>Source</dt>
-        <dd>{selectedEvent.source}</dd>{/if}
-    </dl>
+    {#if selectedEvent}
+      {#key selectedEvent.id}
+        {#if selectedEvent.previewUrl && !previewFailed}
+          <video
+            src={selectedEvent.previewUrl}
+            controls
+            muted
+            playsinline
+            preload="metadata"
+            onerror={() => (previewFailed = true)}
+          ></video>
+        {:else}
+          <p class="preview-unavailable">
+            {previewFailed ? 'Could not load this clip.' : 'Clip no longer available.'}
+          </p>
+        {/if}
+      {/key}
+      <h3 aria-live="polite">{selectedEvent.title || 'Untitled clip'}</h3>
+      <p class="preview-path">{selectedEvent.path}</p>
+      <label class="inactive-control">
+        <input
+          type="checkbox"
+          bind:checked={inactive}
+          disabled={savingClipId !== null || selectedEvent.previewUrl === null}
+          onchange={(event) => void saveInactive(event.currentTarget.checked)}
+        />
+        Inactive
+        {#if savingClipId === selectedEvent.clipId}<span role="status">Saving...</span>{/if}
+      </label>
+      <dl>
+        <dt>Logged</dt>
+        <dd>{rangeFormatter.format(new Date(selectedEvent.startedAt))}</dd>
+        <dt>Channel</dt>
+        <dd>
+          {log.channels.find((channel) => channel.id === selectedEvent?.channelId)?.name ??
+            selectedEvent.channelId}
+        </dd>
+        <dt>Duration</dt>
+        <dd>{formatDuration(selectedEvent.durationSec)}</dd>
+        {#if selectedEvent.source}<dt>Source</dt>
+          <dd>{selectedEvent.source}</dd>{/if}
+      </dl>
+    {:else}
+      <p class="preview-unavailable">No clip selected.</p>
+    {/if}
   </aside>
-{/if}
+</div>

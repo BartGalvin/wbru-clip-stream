@@ -52,7 +52,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.1",
-    "concurrently": "^10.0.3",
+    "concurrently": "^10.0.6",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^9.1.0",
     "happy-dom": "^21.0.4",

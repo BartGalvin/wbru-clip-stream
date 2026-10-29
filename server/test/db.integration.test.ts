@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { catalogRevision } from '../src/tagRevision';
+import { getDatabase } from '../src/db/connection';
 
 let dataDir: string;
 let db: typeof import('../src/db');
@@ -263,6 +264,172 @@ describe('setClipSources', () => {
     expect(sourceOf('clp_source_a')).toBe('Feature Film');
     db.setClipSources(['clp_source_a'], null);
     expect(tagsOf('clp_source_a')).toEqual(['bw']);
+  });
+});
+
+describe('metadata edit history', () => {
+  const changes = () =>
+    getDatabase()
+      .prepare(
+        `SELECT changed_at, batch_id, entity_type, entity_id, field, before_value, after_value
+         FROM metadata_changes ORDER BY id`,
+      )
+      .all() as Record<string, string>[];
+
+  beforeEach(() => {
+    db.syncClips([clip('audit-a'), clip('audit-b')]);
+    db.setClipTagsBatch([
+      { id: 'audit-a', tags: [] },
+      { id: 'audit-b', tags: [] },
+    ]);
+    db.setClipSources(['audit-a', 'audit-b'], null);
+    getDatabase().exec('DELETE FROM metadata_changes');
+  });
+
+  it('records changed tags and sources, groups batches, and skips unchanged saves', () => {
+    db.setClipTagsBatch([
+      { id: 'audit-a', tags: [' movie ', 'movie'] },
+      { id: 'audit-b', tags: ['indie'] },
+    ]);
+    const tags = changes();
+    expect(tags).toEqual([
+      expect.objectContaining({
+        entity_type: 'clip',
+        entity_id: 'audit-a',
+        field: 'tags',
+        before_value: '[]',
+        after_value: '["movie"]',
+      }),
+      expect.objectContaining({
+        entity_type: 'clip',
+        entity_id: 'audit-b',
+        field: 'tags',
+        before_value: '[]',
+        after_value: '["indie"]',
+      }),
+    ]);
+    expect(new Set(tags.map((row) => row.batch_id)).size).toBe(1);
+    expect(new Set(tags.map((row) => row.changed_at)).size).toBe(1);
+    expect(new Date(tags[0].changed_at).toISOString()).toBe(tags[0].changed_at);
+
+    db.setClipTag('audit-a', 'movie', true);
+    expect(changes()).toEqual(tags);
+    db.setClipTag('audit-a', 'inactive', true);
+    expect(changes().at(-1)).toMatchObject({
+      before_value: '["movie"]',
+      after_value: '["movie","inactive"]',
+    });
+
+    db.setClipSources(['audit-a', 'audit-b', 'audit-a'], ' Feature Film ');
+    const sources = changes().slice(3);
+    expect(sources).toHaveLength(2);
+    expect(new Set(sources.map((row) => row.batch_id)).size).toBe(1);
+    expect(sources[0].batch_id).not.toBe(tags[0].batch_id);
+    for (const row of sources)
+      expect(row).toMatchObject({
+        field: 'source',
+        before_value: 'null',
+        after_value: '"Feature Film"',
+      });
+    db.setClipSources(['audit-a'], 'Feature Film');
+    expect(changes()).toHaveLength(5);
+    db.setClipSources(['audit-a'], null);
+    expect(changes().at(-1)).toMatchObject({ before_value: '"Feature Film"', after_value: 'null' });
+
+    const history = changes();
+    db.syncClips([]);
+    expect(changes()).toEqual(history);
+  });
+
+  it('records vocabulary creation and groups deletion with the affected clip edits', () => {
+    db.addVocabTag('audit-tag');
+    const creation = changes();
+    expect(creation).toEqual([
+      expect.objectContaining({
+        entity_type: 'tag',
+        entity_id: 'audit-tag',
+        field: 'exists',
+        before_value: 'false',
+        after_value: 'true',
+      }),
+    ]);
+    db.addVocabTag('audit-tag');
+    expect(changes()).toEqual(creation);
+    db.setClipTagsBatch([
+      { id: 'audit-a', tags: ['audit-tag', 'movie'] },
+      { id: 'audit-b', tags: ['audit-tag'] },
+    ]);
+    const beforeDelete = changes().length;
+
+    db.removeVocabTag('audit-tag');
+    const deletion = changes().slice(beforeDelete);
+    expect(deletion).toHaveLength(3);
+    expect(deletion).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: 'tag',
+          entity_id: 'audit-tag',
+          field: 'exists',
+          before_value: 'true',
+          after_value: 'false',
+        }),
+        expect.objectContaining({
+          entity_type: 'clip',
+          entity_id: 'audit-a',
+          field: 'tags',
+          before_value: '["audit-tag","movie"]',
+          after_value: '["movie"]',
+        }),
+        expect.objectContaining({
+          entity_type: 'clip',
+          entity_id: 'audit-b',
+          field: 'tags',
+          before_value: '["audit-tag"]',
+          after_value: '[]',
+        }),
+      ]),
+    );
+    expect(new Set(deletion.map((row) => row.batch_id)).size).toBe(1);
+    db.removeVocabTag('audit-tag');
+    expect(changes()).toHaveLength(beforeDelete + 3);
+  });
+
+  it('rolls back metadata and history together when recording an edit fails', () => {
+    db.addVocabTag('audit-rollback');
+    db.setClipTagsBatch([
+      { id: 'audit-a', tags: ['audit-rollback'] },
+      { id: 'audit-b', tags: ['audit-rollback'] },
+    ]);
+    getDatabase().exec(`
+      DELETE FROM metadata_changes;
+      CREATE TEMP TRIGGER reject_audit BEFORE INSERT ON metadata_changes
+      WHEN NEW.entity_type = 'clip' AND NEW.entity_id = 'audit-b'
+      BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END;
+    `);
+    try {
+      const edits = [
+        () =>
+          db.setClipTagsBatch([
+            { id: 'audit-a', tags: ['movie'] },
+            { id: 'audit-b', tags: ['movie'] },
+          ]),
+        () => db.setClipSources(['audit-a', 'audit-b'], 'Feature Film'),
+        () => db.removeVocabTag('audit-rollback'),
+      ];
+      for (const edit of edits) {
+        const revision = catalogRevision();
+        expect(edit).toThrow('audit unavailable');
+        expect(changes()).toEqual([]);
+        expect(tagsOf('audit-a')).toEqual(['audit-rollback']);
+        expect(tagsOf('audit-b')).toEqual(['audit-rollback']);
+        expect(sourceOf('audit-a')).toBeNull();
+        expect(sourceOf('audit-b')).toBeNull();
+        expect(db.listTagVocabulary()).toContain('audit-rollback');
+        expect(catalogRevision()).toBe(revision);
+      }
+    } finally {
+      getDatabase().exec('DROP TRIGGER reject_audit');
+    }
   });
 });
 

@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 describe('database startup boundary', () => {
-  it('adds upload years to an existing catalog without changing its clips', () => {
+  it('adds upload years and edit history without changing existing clips', () => {
     const database = new Database(':memory:');
     try {
       createSchema(database);
@@ -26,6 +26,7 @@ describe('database startup boundary', () => {
         "INSERT INTO clips (id, title, url, path, library, duration_sec) VALUES ('clip-1', 'Studio Session', '/clips/session.mp4', 'session.mp4', 'wbru-youtube', 60)",
       );
       database.exec('ALTER TABLE clips DROP COLUMN published_year');
+      database.exec('DROP TABLE metadata_changes');
 
       createSchema(database);
       createSchema(database);
@@ -34,6 +35,7 @@ describe('database startup boundary', () => {
         title: 'Studio Session',
         published_year: null,
       });
+      expect(database.prepare('SELECT * FROM metadata_changes').all()).toEqual([]);
     } finally {
       database.close();
     }

@@ -18,6 +18,7 @@ Clip files -> Indexer -> Local scan cache (clips-cache.json)
 - discovered clips and their availability,
 - tags and source labels keyed by clip id,
 - the ordered tag vocabulary,
+- metadata edit history,
 - scheduled clip starts for server-owned outputs.
 
 `clips-cache.json` is a generated local scan cache. The indexer reuses its file IDs and durations
@@ -34,6 +35,13 @@ Database reads return playout timestamps as UTC ISO 8601 strings.
 `createSchema()` defines the current tables and indexes. Update the schema and its
 database tests together. `npm run backup` creates consistent SQLite snapshots under
 `BACKUP_DIR`.
+
+`metadata_changes` records tag, source, and vocabulary edits in the same transaction
+as the change. Each row stores a UTC ISO timestamp, batch ID, entity (`clip` or `tag`),
+field, and JSON before/after values. Batch IDs group edits across clips, including
+the clip changes made when deleting a vocabulary tag. Unchanged saves produce no
+history. These records cover application edits, not direct SQL, and do not identify
+individual operators. History is retained in the database and its backups.
 
 ## Program sequencing
 

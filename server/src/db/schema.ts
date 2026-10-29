@@ -46,6 +46,23 @@ export function createSchema(db: Database.Database): void {
       position INTEGER NOT NULL UNIQUE
     );
 
+    CREATE TABLE IF NOT EXISTS metadata_changes (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      changed_at   TEXT NOT NULL,
+      batch_id     TEXT NOT NULL,
+      entity_type  TEXT NOT NULL,
+      entity_id    TEXT NOT NULL,
+      field        TEXT NOT NULL,
+      before_value TEXT NOT NULL,
+      after_value  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS metadata_changes_entity
+    ON metadata_changes (entity_type, entity_id, id);
+
+    CREATE INDEX IF NOT EXISTS metadata_changes_batch
+    ON metadata_changes (batch_id);
+
     CREATE TABLE IF NOT EXISTS playout_events (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

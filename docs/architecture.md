@@ -76,8 +76,8 @@ may be Icecast, HLS, embedded in the video, or absent.
   With no `channel` parameter, it uses `all`: eligible clips in the `visualizer` library,
   not `wbru-tv`. Server-timed channels without custom filters join the server's current clip
   and offset once at startup via `/api/program/position`, then advance locally without
-  periodic seeking. The title overlay independently polls the current program every
-  second; it follows the server schedule, not the browser's video, so they can drift apart.
+  periodic seeking. The title overlay updates when a different clip starts playing
+  in the browser, using the title and publication year supplied with that clip.
   The `all` channel and custom-filter streams retain browser-local progress. Browsers do
   not write playout events.
 - **`/playout`** shows searchable, cursor-paged history for the scheduled outputs.

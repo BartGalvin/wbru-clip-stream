@@ -3,7 +3,7 @@ import { createPlaybackCheckpointStore } from '../content/playbackCheckpoint';
 import { createVideoProgram } from '../video/videoProgram';
 import { activeProgram, isStationAudio } from '../../shared/contract';
 import { isEmptyTagFilter, parseTagFilter } from '../../shared/tagFilter';
-import { mountTitleOverlay } from '../title/titleFeed';
+import { renderTitleOverlay } from '../title/titleOverlay';
 import { waitForChannel, waitForProgramPosition } from './channel';
 import '../title/title.css';
 import './stream.css';
@@ -37,7 +37,6 @@ function startStream(): () => void {
   const { signal } = controller;
   let video: ReturnType<typeof createVideoProgram> | null = null;
   let audio: ReturnType<typeof createAudioProgram> | null = null;
-  let stopTitleOverlay: (() => void) | null = null;
 
   function showStatus(text: string | null): void {
     if (signal.aborted || !message) return;
@@ -55,7 +54,7 @@ function startStream(): () => void {
     video?.destroy();
     controller.abort();
     audio?.destroy();
-    stopTitleOverlay?.();
+    renderTitleOverlay(titleOverlay, videoTitle, null);
   }
 
   // Resolve the channel, join its timeline, then start video and optional station audio.
@@ -87,9 +86,6 @@ function startStream(): () => void {
           })
         : checkpointStore?.load();
       if (signal.aborted) return;
-      if (channel.titleOutputId && followsServerTimeline) {
-        stopTitleOverlay = mountTitleOverlay(channel.titleOutputId, titleOverlay, videoTitle);
-      }
       video = createVideoProgram(program.video, {
         stage,
         muted: !embeddedAudio,
@@ -99,6 +95,12 @@ function startStream(): () => void {
           channelId: channel.id,
           filter,
           resumeFrom,
+          onClipStart:
+            channel.titleOutputId && followsServerTimeline
+              ? (clip) => {
+                  if (!signal.aborted) renderTitleOverlay(titleOverlay, videoTitle, clip);
+                }
+              : undefined,
           onPlaybackUpdate: checkpointStore
             ? (checkpoint) => {
                 if (!signal.aborted) checkpointStore.save(checkpoint);

@@ -4,13 +4,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { ChannelInfo, ProgramPosition } from '../../shared/contract';
 import { createAudioProgram } from '../audio/audioProgram';
 import { createPlaybackCheckpointStore } from '../content/playbackCheckpoint';
-import { mountTitleOverlay } from '../title/titleFeed';
 import { createVideoProgram } from '../video/videoProgram';
 import { waitForChannel, waitForProgramPosition } from './channel';
 
 vi.mock('../audio/audioProgram', () => ({ createAudioProgram: vi.fn() }));
 vi.mock('../content/playbackCheckpoint', () => ({ createPlaybackCheckpointStore: vi.fn() }));
-vi.mock('../title/titleFeed', () => ({ mountTitleOverlay: vi.fn() }));
 vi.mock('../video/videoProgram', () => ({ createVideoProgram: vi.fn() }));
 vi.mock('./channel', () => ({ waitForChannel: vi.fn(), waitForProgramPosition: vi.fn() }));
 
@@ -32,6 +30,7 @@ const position: ProgramPosition = {
   clip: {
     clipId: 'clip-1',
     title: 'Studio Session',
+    publishedYear: 2014,
     url: '/clips/session.mp4',
     durationSec: 60,
     cursor: 'cursor-1',
@@ -82,13 +81,34 @@ beforeEach(() => {
     start: vi.fn(async () => options.onStatus(null)),
     destroy: vi.fn(),
   }));
-  vi.mocked(mountTitleOverlay).mockImplementation(() => vi.fn());
 });
 
 afterEach(() => {
   navigate('pagehide', false);
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+it('updates the built-in title from playback rather than polling the server schedule', async () => {
+  await openPage();
+  const options = vi.mocked(createVideoProgram).mock.calls[0][1];
+  const title = document.getElementById('video-title')!;
+  expect(title.textContent).toBe('');
+
+  options.clip?.onClipStart?.(position.clip);
+  expect(title.textContent).toBe('Studio Session (2014)');
+
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(title.textContent).toBe('Studio Session (2014)');
+
+  options.clip?.onClipStart?.({
+    ...position.clip,
+    clipId: 'clip-2',
+    title: 'Rooftop Session',
+    publishedYear: 2015,
+  });
+  expect(title.textContent).toBe('Rooftop Session (2015)');
 });
 
 it('rejoins the current position with fresh players and cancellation on each cached restoration', async () => {
@@ -100,12 +120,14 @@ it('rejoins the current position with fresh players and cancellation on each cac
     const oldSignal = vi.mocked(waitForChannel).mock.calls[run][1].signal;
     const oldVideo = vi.mocked(createVideoProgram).mock.results[run].value;
     const oldAudio = vi.mocked(createAudioProgram).mock.results[run].value;
-    const oldOverlay = vi.mocked(mountTitleOverlay).mock.results[run].value;
+    const oldOptions = vi.mocked(createVideoProgram).mock.calls[run][1];
+    oldOptions.clip?.onClipStart?.(position.clip);
+    expect(document.getElementById('title-overlay')?.classList.contains('visible')).toBe(true);
     navigate('pagehide', true);
     expect(oldSignal.aborted).toBe(true);
     expect(oldVideo.destroy).toHaveBeenCalledOnce();
     expect(oldAudio.destroy).toHaveBeenCalledOnce();
-    expect(oldOverlay).toHaveBeenCalledOnce();
+    expect(document.getElementById('title-overlay')?.getAttribute('aria-hidden')).toBe('true');
 
     const currentPosition = { ...position, timeSec: position.timeSec + run + 1 };
     vi.mocked(waitForProgramPosition).mockResolvedValue(currentPosition);
@@ -123,6 +145,8 @@ it('rejoins the current position with fresh players and cancellation on each cac
       currentPosition,
     );
     expect(vi.mocked(createVideoProgram).mock.results[run + 1].value.start).toHaveBeenCalledOnce();
+    oldOptions.clip?.onClipStart?.(position.clip);
+    expect(document.getElementById('video-title')?.textContent).toBe('');
   }
 });
 

@@ -227,6 +227,7 @@ describe('GET /api/channels', () => {
       clip: {
         clipId: 'clp_in',
         title: 'in',
+        publishedYear: null,
         url: '/clips/in.mp4',
         durationSec: 0,
         cursor: 'indie-slot',

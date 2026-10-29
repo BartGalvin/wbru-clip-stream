@@ -131,21 +131,27 @@ describe('playout timestamps', () => {
 });
 
 describe('syncClips', () => {
-  it('updates the overlay upload year while preserving tags and source', () => {
+  it('supplies the upload year for playback while preserving tags and source', () => {
     const session = { ...clip('clp_year', 'wbru-youtube'), publishedYear: 2014 };
     db.syncClips([session]);
     db.setClipTagsBatch([{ id: session.id, tags: ['session'] }]);
     db.setClipSources([session.id], 'WBRU');
     db.recordPlayout('year-test', 'wbru-tv', session.id, 'year-slot');
     expect(db.getCurrentPlayout('year-test')?.publishedYear).toBe(2014);
+    expect(db.getProgramPosition('year-test')?.clip.publishedYear).toBe(2014);
+    expect(db.listProgramClips('wbru-youtube')[0].publishedYear).toBe(2014);
 
     db.syncClips([{ ...session, publishedYear: 2015 }]);
     expect(db.getCurrentPlayout('year-test')?.publishedYear).toBe(2015);
+    expect(db.getProgramPosition('year-test')?.clip.publishedYear).toBe(2015);
+    expect(db.listProgramClips('wbru-youtube')[0].publishedYear).toBe(2015);
     expect(tagsOf(session.id)).toEqual(['session']);
     expect(sourceOf(session.id)).toBe('WBRU');
 
     db.syncClips([{ ...session, publishedYear: null }]);
     expect(db.getCurrentPlayout('year-test')?.publishedYear).toBeNull();
+    expect(db.getProgramPosition('year-test')?.clip.publishedYear).toBeNull();
+    expect(db.listProgramClips('wbru-youtube')[0].publishedYear).toBeNull();
   });
 
   it('reconciles availability while preserving operator metadata', () => {

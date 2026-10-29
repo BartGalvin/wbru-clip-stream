@@ -153,7 +153,7 @@ function getCurrentPlayoutRow(outputId: string): CurrentPlayoutRow | null {
   return row;
 }
 
-// Keep the title current for the clip's duration plus the expiry margin.
+// Report the scheduled clip for its duration plus the expiry margin.
 export function getCurrentPlayout(outputId: string): CurrentPlayout | null {
   const row = getCurrentPlayoutRow(outputId);
   if (!row) return null;
@@ -176,6 +176,7 @@ export function getProgramPosition(outputId: string): ProgramPosition | null {
     clip: {
       clipId: row.clipId,
       title: row.title,
+      publishedYear: row.publishedYear,
       url: row.url,
       durationSec: row.durationSec,
       cursor: row.cursor,

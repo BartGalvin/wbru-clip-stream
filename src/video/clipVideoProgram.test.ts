@@ -99,16 +99,25 @@ afterEach(() => {
 });
 
 describe('createClipVideoProgram', () => {
-  it('clears status when the active video plays', async () => {
-    const harness = createProgramHarness();
+  it('announces active playback once per clip and clears status', async () => {
+    const onClipStart = vi.fn();
+    const harness = createProgramHarness({ clipContext: { onClipStart } });
     await harness.program.start();
     harness.onStatus.mockClear();
+    expect(onClipStart).not.toHaveBeenCalled();
 
     harness.videos[1].dispatchEvent(new Event('playing'));
     expect(harness.onStatus).not.toHaveBeenCalled();
+    expect(onClipStart).not.toHaveBeenCalled();
     harness.videos[0].dispatchEvent(new Event('playing'));
     expect(harness.onStatus).toHaveBeenCalledWith(null);
+    expect(onClipStart).toHaveBeenCalledWith(clip(1));
+    harness.videos[0].dispatchEvent(new Event('waiting'));
+    harness.videos[0].dispatchEvent(new Event('playing'));
+    expect(onClipStart).toHaveBeenCalledOnce();
     harness.program.destroy();
+    harness.videos[0].dispatchEvent(new Event('playing'));
+    expect(onClipStart).toHaveBeenCalledOnce();
   });
 
   it('restores the saved clip and time, then queues the clip after it', async () => {
@@ -175,12 +184,16 @@ describe('createClipVideoProgram', () => {
 
   it('keeps clip load failures inside preparation', async () => {
     const videos: [FakeVideo, FakeVideo] = [new FakeVideo(['error', 'canplay']), new FakeVideo()];
-    const harness = createProgramHarness({ videos });
+    const onClipStart = vi.fn();
+    const harness = createProgramHarness({ videos, clipContext: { onClipStart } });
 
     await harness.program.start();
 
     expect(harness.videos[0].src).toBe('/clips/2.mp4');
     expect(dependencies.playWithAudioFallback).toHaveBeenCalledOnce();
+    expect(onClipStart).not.toHaveBeenCalled();
+    videos[0].dispatchEvent(new Event('playing'));
+    expect(onClipStart).toHaveBeenCalledExactlyOnceWith(clip(2));
     harness.program.destroy();
   });
 
@@ -189,12 +202,21 @@ describe('createClipVideoProgram', () => {
     const videos: [FakeVideo, FakeVideo] = [new FakeVideo(), new FakeVideo([null])];
     videos[0].duration = 5;
     const preload = vi.spyOn(videos[1], 'load');
-    const harness = createProgramHarness({ videos });
+    const onClipStart = vi.fn();
+    const nextClip = { ...clip(2), publishedYear: 2014 };
+    const harness = createProgramHarness({
+      videos,
+      clips: [clip(1), nextClip, clip(3)],
+      clipContext: { onClipStart },
+    });
 
     try {
       await harness.program.start();
       await vi.advanceTimersByTimeAsync(0);
       expect(videos[1].src).toBe('/clips/2.mp4');
+      expect(onClipStart).not.toHaveBeenCalled();
+      videos[0].dispatchEvent(new Event('playing'));
+      expect(onClipStart).toHaveBeenCalledExactlyOnceWith(clip(1));
 
       // Two completed plays must leave the same off-air load running.
       for (const playCount of [2, 3]) {
@@ -209,6 +231,8 @@ describe('createClipVideoProgram', () => {
           expect.any(Object),
         );
         expect(preload).toHaveBeenCalledOnce();
+        videos[0].dispatchEvent(new Event('playing'));
+        expect(onClipStart).toHaveBeenCalledOnce();
       }
 
       videos[1].dispatchEvent(new Event('canplay'));
@@ -220,6 +244,12 @@ describe('createClipVideoProgram', () => {
       expect(dependencies.playWithAudioFallback).toHaveBeenCalledTimes(4);
       expect(videos[1].classList.toggle).toHaveBeenLastCalledWith('on', true);
       expect(videos[0].src).toBe('/clips/3.mp4');
+      expect(onClipStart).toHaveBeenCalledOnce();
+      videos[1].dispatchEvent(new Event('playing'));
+      expect(onClipStart).toHaveBeenCalledTimes(2);
+      expect(onClipStart).toHaveBeenLastCalledWith(nextClip);
+      videos[0].dispatchEvent(new Event('playing'));
+      expect(onClipStart).toHaveBeenCalledTimes(2);
     } finally {
       harness.program.destroy();
     }

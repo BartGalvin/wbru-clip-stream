@@ -61,6 +61,7 @@ export interface TaggableClip {
 export interface ClipRef {
   clipId: string; // the clip's content id
   title: string;
+  publishedYear?: number | null;
   url: string;
   durationSec: number;
   cursor: string; // pass as `after` to fetch the clips that follow this one
@@ -95,7 +96,7 @@ export interface SetClipSourcesRequest {
   source: string | null;
 }
 
-// Scheduled clip state consumed by the title overlay.
+// Current scheduled clip reported by the program API.
 export interface CurrentPlayout {
   outputId: string;
   channelId: string;

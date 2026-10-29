@@ -9,7 +9,7 @@ export function listProgramClips(library: string): ProgramClip[] {
   const db = getDatabase();
   const rows = db
     .prepare(
-      `SELECT c.id, c.title, c.url, c.library, c.duration_sec,
+      `SELECT c.id, c.title, c.published_year AS publishedYear, c.url, c.library, c.duration_sec,
               COALESCE(m.tags, '[]') AS tags
        FROM clips c
        LEFT JOIN clip_metadata m ON m.clip_id = c.id
@@ -19,6 +19,7 @@ export function listProgramClips(library: string): ProgramClip[] {
     .all(library) as {
     id: string;
     title: string;
+    publishedYear: number | null;
     url: string;
     library: string;
     duration_sec: number;
@@ -27,6 +28,7 @@ export function listProgramClips(library: string): ProgramClip[] {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
+    publishedYear: row.publishedYear,
     url: row.url,
     library: row.library,
     durationSec: row.duration_sec,

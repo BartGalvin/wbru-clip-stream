@@ -2,10 +2,11 @@ import type { ClipRef } from '../../shared/contract';
 import { DEFAULT_PLAYOUT_POLICY, type PlayoutPolicy } from './config/playoutPolicy';
 import { lapOrder, programOrderFingerprint } from './lapOrder';
 
-// Catalog fields required to place one clip in a deterministic program lap.
+// Catalog fields used to order clips and supply their playback metadata.
 export interface ProgramClip {
   id: string;
   title: string;
+  publishedYear?: number | null;
   url: string;
   durationSec: number;
   library: string;
@@ -69,6 +70,7 @@ export function getUpcomingFromRows(
     items.push({
       clipId: clip.id,
       title: clip.title,
+      publishedYear: clip.publishedYear ?? null,
       url: clip.url,
       durationSec: clip.durationSec,
       tags: clip.tags,

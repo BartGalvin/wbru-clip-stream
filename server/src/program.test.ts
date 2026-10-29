@@ -64,9 +64,13 @@ describe('getUpcomingFromRows', () => {
     expect(upcomingClipIds(cursorWithPayload(payload), 1)).toEqual(upcomingClipIds(null, 1));
   });
 
-  it('carries the row tags through to the refs', () => {
-    const [item] = getUpcomingFromRows([programClip('a', ['x', 'y'])], null, 1);
-    expect(item.tags).toEqual(['x', 'y']);
+  it('carries clip metadata through to the playback refs', () => {
+    const [item] = getUpcomingFromRows(
+      [{ ...programClip('a', ['x', 'y']), publishedYear: 2014 }],
+      null,
+      1,
+    );
+    expect(item).toMatchObject({ title: 'a', publishedYear: 2014, tags: ['x', 'y'] });
   });
 });
 

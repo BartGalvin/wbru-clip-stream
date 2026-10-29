@@ -51,6 +51,7 @@ export function createClipVideoProgram(
     }),
   ] as const;
   let playback: MediaHandle | null = null;
+  let startedClipId: string | null = null;
   let nextReady: Promise<boolean> = Promise.resolve(false);
   let isPreloadingNext = false;
 
@@ -119,10 +120,17 @@ export function createClipVideoProgram(
     }
   };
 
-  // Advance on completion and save progress from the active buffer.
+  // Announce actual playback, advance on completion, and save active-buffer progress.
   videos.forEach((video, index) => {
     video.addEventListener('playing', () => {
-      if (index === active) options.onStatus(null);
+      if (destroyed || index !== active) return;
+      options.onStatus(null);
+      const clip = loaders[index].clip;
+      // Buffering and replays can emit playing again without changing the clip.
+      if (clip && clip.clipId !== startedClipId) {
+        startedClipId = clip.clipId;
+        context.onClipStart?.(clip);
+      }
     });
     video.addEventListener('ended', () => {
       if (videos[active] === video) void advance('ended');

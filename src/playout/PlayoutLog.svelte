@@ -90,6 +90,9 @@
 
   const localDayKey = (value: string): string => new Date(value).toDateString();
 
+  const clipPathSuffix = (path: string): string =>
+    path.match(/[ _-]?clip[ _-]*\d+(?:\.[a-z0-9]+)?$/i)?.[0] ?? '';
+
   const formatDuration = (seconds: number): string => {
     if (!Number.isFinite(seconds) || seconds <= 0) return 'Duration unavailable';
     const totalSeconds = Math.round(seconds);
@@ -322,6 +325,7 @@
               onscroll={(event) => loadMoreNearBottom(channel.id, event.currentTarget)}
             >
               {#each items as event, index (event.id)}
+                {@const suffix = clipPathSuffix(event.path)}
                 {#if index === 0 || localDayKey(event.startedAt) !== localDayKey(items[index - 1].startedAt)}
                   <li class="day-divider">{dayFormatter.format(new Date(event.startedAt))}</li>
                 {/if}
@@ -355,7 +359,12 @@
                       </span>
                       <span class="event-details">
                         <strong>{event.title || 'Untitled clip'}</strong>
-                        <span class="path" title={event.path}>{event.path}</span>
+                        <span class="path" title={event.path}>
+                          <span class="path-prefix"
+                            >{event.path.slice(0, event.path.length - suffix.length)}</span
+                          >
+                          {#if suffix}<span class="path-suffix">{suffix}</span>{/if}
+                        </span>
                         {#if event.source}
                           <span class="source" title={event.source}>Source: {event.source}</span>
                         {/if}

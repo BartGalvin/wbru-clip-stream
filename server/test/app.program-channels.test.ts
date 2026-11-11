@@ -137,6 +137,7 @@ describe('GET /api/channels', () => {
     expect(response.status).toBe(200);
     const channels = (await response.json()) as {
       id: string;
+      name: string;
       timeline?: string;
       titleOutputId?: string;
       program: {
@@ -145,10 +146,11 @@ describe('GET /api/channels', () => {
       };
       live?: unknown;
     }[];
-    expect(channels.map((channel) => channel.id)).not.toContain('all');
-    expect(channels.map((channel) => channel.id)).toEqual(
-      expect.arrayContaining(['indie', '360', 'wbru-tv']),
-    );
+    expect(channels.map(({ id, name }) => [id, name])).toEqual([
+      ['indie', 'WBRU'],
+      ['360', 'WBRU360'],
+      ['wbru-tv', 'WBRUTube'],
+    ]);
     for (const channel of channels) {
       expect(channel.program.video.kind).toBe('clips');
       expect(channel.program.video.library).toBeTruthy();
@@ -156,7 +158,7 @@ describe('GET /api/channels', () => {
       expect(channel.timeline).toBe('server');
     }
     const tvChannel = channels.find((channel) => channel.id === 'wbru-tv');
-    expect(tvChannel).toMatchObject({ name: 'WBRUTube', titleOutputId: 'wbru-tv' });
+    expect(tvChannel?.titleOutputId).toBe('wbru-tv');
     expect(
       channels
         .filter((channel) => channel.id !== 'wbru-tv')

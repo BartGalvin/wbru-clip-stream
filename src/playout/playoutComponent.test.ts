@@ -115,6 +115,27 @@ function setSearch(value: string): void {
   input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+it('keeps the numbered filename suffix outside the truncating text', async () => {
+  const path = 'films/A particularly long movie filename_clip_042.mp4';
+  api.fetchPlayoutPage.mockResolvedValue({
+    items: [
+      { ...event, id: 12, path },
+      { ...event, id: 11, path: '360/djscratchingcdclip_001.mp4' },
+      event,
+    ],
+  });
+  await renderLog();
+
+  expect([...document.querySelectorAll('.path-suffix')].map((part) => part.textContent)).toEqual([
+    '_clip_042.mp4',
+    'clip_001.mp4',
+  ]);
+  expect(document.querySelector('.path')?.getAttribute('title')).toBe(path);
+  expect(document.querySelector('.event-row:last-child .path')?.textContent?.trim()).toBe(
+    event.path,
+  );
+});
+
 it.each([
   [1600, 1000, 'vertical', 'ArrowLeft', '--preview-width'],
   [390, 844, 'horizontal', 'ArrowUp', '--preview-height'],

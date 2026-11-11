@@ -38,7 +38,7 @@ const CHANNELS: readonly Channel[] = [
   },
   {
     id: 'indie',
-    name: 'WBRU Indie',
+    name: 'WBRU',
     viewerFacing: true,
     serverTimelineOutputId: 'indie-server',
     program: {
@@ -52,7 +52,7 @@ const CHANNELS: readonly Channel[] = [
   },
   {
     id: '360',
-    name: 'WBRU 360',
+    name: 'WBRU360',
     viewerFacing: true,
     serverTimelineOutputId: '360-server',
     program: {

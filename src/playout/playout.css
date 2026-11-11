@@ -339,6 +339,12 @@ h2 {
   gap: 12px;
 }
 
+@container (max-width: 260px) {
+  .event-content {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+}
+
 .event-thumbnail {
   position: relative;
   display: grid;
@@ -382,6 +388,21 @@ h2 {
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.path {
+  display: flex;
+}
+
+.path-prefix {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.path-suffix {
+  flex: none;
+  white-space: pre;
 }
 
 .event-meta {

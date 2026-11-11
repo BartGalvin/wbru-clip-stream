@@ -66,7 +66,7 @@ const CHANNELS: readonly Channel[] = [
   },
   {
     id: 'wbru-tv',
-    name: 'WBRU TV',
+    name: WBRU_YOUTUBE_LIBRARY.name,
     viewerFacing: true,
     serverTimelineOutputId: 'wbru-tv',
     titleOutputId: 'wbru-tv',

@@ -52,7 +52,7 @@ describe('GET /api/program/upcoming', () => {
     expect([...new Set(withoutKenBurns)].sort()).toEqual(['clp_bw', 'clp_in']);
   });
 
-  it('keeps untagged visualizer clips out of rotation without affecting WBRU TV', async () => {
+  it('keeps untagged visualizer clips out of rotation without affecting WBRUTube', async () => {
     http.database.setClipTagsBatch([
       { id: 'clp_bw', tags: [] },
       { id: 'clp_tv', tags: [] },
@@ -156,7 +156,7 @@ describe('GET /api/channels', () => {
       expect(channel.timeline).toBe('server');
     }
     const tvChannel = channels.find((channel) => channel.id === 'wbru-tv');
-    expect(tvChannel?.titleOutputId).toBe('wbru-tv');
+    expect(tvChannel).toMatchObject({ name: 'WBRUTube', titleOutputId: 'wbru-tv' });
     expect(
       channels
         .filter((channel) => channel.id !== 'wbru-tv')

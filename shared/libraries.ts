@@ -5,7 +5,7 @@ export const VISUALIZER_LIBRARY = {
 
 export const WBRU_YOUTUBE_LIBRARY = {
   id: 'wbru-youtube',
-  name: 'WBRU YouTube',
+  name: 'WBRUTube',
 } as const;
 
 export const CLIP_LIBRARIES = [VISUALIZER_LIBRARY, WBRU_YOUTUBE_LIBRARY] as const;

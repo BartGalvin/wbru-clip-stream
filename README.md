@@ -73,14 +73,14 @@ YOUTUBE_CHANNEL_URL=
 ```
 
 Use your station's URLs. A blank radio URL disables that channel's external audio;
-WBRU TV still uses the video's sound. YouTube downloads require `YOUTUBE_CHANNEL_URL`.
+WBRUTube still uses the video's sound. YouTube downloads require `YOUTUBE_CHANNEL_URL`.
 The API and downloader npm commands load `.env`; restart the API after changing it.
 For a hosted installation, set these values in the service's environment as well.
 
 ## Use with OBS
 
 Add a **Browser Source**, set it to **1920x1080**, and use a stream URL from the builder.
-Enable radio audio in the builder when needed. WBRU TV uses the video's own audio and
+Enable radio audio in the builder when needed. WBRUTube uses the video's own audio and
 displays its title and publication year. If a browser blocks sound, click the page to start it.
 
 ## Further reading

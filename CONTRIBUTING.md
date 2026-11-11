@@ -6,7 +6,7 @@ Start with the [local setup](README.md#run-locally). Use a few local clips for d
 
 - `src/tagger/`, `src/builder/`, and `src/playout/` contain the Svelte operator pages.
 - `src/stream/`, `src/video/`, and `src/audio/` handle playback; `src/title/` supplies
-  the WBRU TV overlay.
+  the WBRUTube overlay.
 - `server/src/` contains the API, catalog, and playback ordering. Channel configuration
   lives in `server/src/config/`.
 - `shared/` contains the API types and tag-filter rules used by the browser and server.
